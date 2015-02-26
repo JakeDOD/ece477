@@ -21,13 +21,15 @@ void parseArgs(int argc, char* argv[], char** port, char** inputName, char** out
 	int i = 0;
 	for (i = 0; i < argc; i++) {
 
-		// Compare the input arguments against our known flags
+		// Compare the input arguments against our known flags and ignores other flags
 		if ((strcmp(FLAG_PORT, argv[i]) == 0) && (argc > ++i)) {
 			*port = argv[i];
 		} else if ((strcmp(FLAG_INPUT, argv[i]) == 0) && (argc > ++i)) {
 			*inputName = argv[i];
 		} else if ((strcmp(FLAG_OUTPUT, argv[i]) == 0) && (argc > ++i)) {
 			*outputName = argv[i];
+		} else if (argv[i][0] == '-') {
+			fprintf(stderr, "Unknown argument: %s\n", argv[i]);
 		}
 	}
 }
@@ -178,7 +180,7 @@ int parentMain(pid_t childPid, int fd, char* inputName)
 				break;
 			}
 
-			sleepTime += 1000 * strlen(buff);
+			sleepTime += 2000 * strlen(buff);
 		}
 	}
 
