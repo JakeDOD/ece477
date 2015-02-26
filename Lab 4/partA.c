@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <signal.h>
 
 #define FLAG_PORT "-p"
 #define FLAG_INPUT "-f"
@@ -14,7 +15,7 @@
 #define BUFF_SIZE 100
 
 // Parses the program arguments for the port and output file name
-void parseArgs(int argc, char* argv[], char* port, char* inputName, char* outputName)
+void parseArgs(int argc, char* argv[], char** port, char** inputName, char** outputName)
 {
 	// Parse the command line arguments
 	int i = 0;
@@ -22,11 +23,11 @@ void parseArgs(int argc, char* argv[], char* port, char* inputName, char* output
 
 		// Compare the input arguments against our known flags
 		if ((strcmp(FLAG_PORT, argv[i]) == 0) && (argc > ++i)) {
-			port = argv[i];
+			*port = argv[i];
 		} else if ((strcmp(FLAG_INPUT, argv[i]) == 0) && (argc > ++i)) {
-			inputName = argv[i];
+			*inputName = argv[i];
 		} else if ((strcmp(FLAG_OUTPUT, argv[i]) == 0) && (argc > ++i)) {
-			outputName = argv[i];
+			*outputName = argv[i];
 		}
 	}
 }
@@ -41,6 +42,7 @@ int setupPort(char* portName)
 	fd = open(portName, O_RDWR | O_NOCTTY | O_SYNC);
 	if (fd < 0) {
 		perror("There was an error opening the serial port");
+		fprintf(stderr, "%s\n", portName);
 		return fd;
 	}
 
@@ -95,6 +97,7 @@ int childMain(int fd, char* outputName)
 	char* inBuff[BUFF_SIZE];
 	int retVal;
 	int num1, num2, num3, num4, num5 = 0;
+	char peek;
 
 	// If we have an output file, open that file for writing
 	if (outputName != NULL) {
@@ -114,9 +117,7 @@ int childMain(int fd, char* outputName)
 	// Loop forever
 	while (1) {
 		retVal = fscanf(inputFile, "%d,%d,%d,%d,%d", &num1, &num2, &num3, &num4, &num5);
-		if (retVal == EBADF) {
-			return 0;
-		} else if (retVal == EOF) {
+		if (retVal == EOF) {
 			return errno;
 		}
 
@@ -146,9 +147,10 @@ int parentMain(pid_t childPid, int fd, char* inputName)
 {
 	char buff[BUFF_SIZE];
 	int inputFd, exitValue, retVal;
+	int sleepTime = 0;
 
 	// First open the input file
-	inputFd = open(inputName, O_WRONLY);
+	inputFd = open(inputName, O_RDONLY);
 	if (inputFd < 0) {
 		perror("There was an error opening the input file");
 		fprintf(stderr, "\tInput File: %s\n", inputName);
@@ -159,6 +161,7 @@ int parentMain(pid_t childPid, int fd, char* inputName)
 		while (1) {
 			retVal = read(inputFd, buff, BUFF_SIZE);
 			if (retVal < 0) {
+				fprintf(stderr, "%s\n", inputName);
 				perror("There was an error reading the input file");
 				exitValue = -2;
 				break;
@@ -174,6 +177,8 @@ int parentMain(pid_t childPid, int fd, char* inputName)
 				exitValue = -3;
 				break;
 			}
+
+			sleepTime += 1000 * strlen(buff);
 		}
 	}
 
@@ -183,12 +188,19 @@ int parentMain(pid_t childPid, int fd, char* inputName)
 		exitValue = -4;
 	}
 
+	usleep(sleepTime);
+
+	if (kill(childPid, SIGTERM) != 0) {
+		perror("There was an error while calling kill()");
+		return -5;
+	}
+
 	// Wait for the child process to return
 	waitpid(childPid, &retVal, 0);
 
 	if (retVal < 0) {
 		fprintf(stderr, "The child process returned an error\n");
-		exitValue = -5;
+		exitValue = -6;
 	}
 
 	return exitValue;
@@ -197,20 +209,20 @@ int parentMain(pid_t childPid, int fd, char* inputName)
 int main(int argc, char* argv[])
 {
 	static char defaultPort[] = "/dev/ttyUSB0";
-	static char defaultOutput[] = "default.csv";
+	static char defaultInput[] = "default.csv";
 	char* port, *inputName, *outputName = NULL;
 	int fd;
 	pid_t pid;
 
-	parseArgs(argc, argv, port, inputName, outputName);
+	parseArgs(argc, argv, &port, &inputName, &outputName);
 
 	// If we didn't find our input arguments, set them to the default
 	if (port == NULL) {
 		port = defaultPort;
 	}
 
-	if (outputName == NULL) {
-		outputName = defaultOutput;
+	if (inputName == NULL) {
+		inputName = defaultInput;
 	}
 
 	// Set up the serial port
@@ -233,10 +245,10 @@ int main(int argc, char* argv[])
 		return -3;
 	} else if (pid == 0) {
 		// We are the child process
-		childMain(fd, outputName);
+		return childMain(fd, outputName);
 	} else {
 		// We are the parent process
-		parentMain(pid, fd, inputName);
+		return parentMain(pid, fd, inputName);
 	}
 
 	return 0;
