@@ -147,6 +147,13 @@ int childMain(int fd, char* outputName)
 		}
 	}
 
+	if (outputName != stdout) {
+		if (fclose(outputName) != 0) {
+			perror("Error closing output file");
+			return errno;
+		}
+	}
+
 	return 0;
 }
 
