@@ -55,8 +55,10 @@ int setupPort(char* portName)
 	}
 
 	/* Set the read and write speed to baud 115200 */
-	cfsetospeed(&tty, B9600);
-	cfsetispeed(&tty, B9600);
+	if (cfsetospeed(&tty, B9600) || cfsetispeed(&tty, B9600)) {
+		perror("cfsetspeed");
+		return -3;
+	}
 
 	/* Set the data size to 8 bits */
 	tty.c_cflag = (tty.c_cflag & ~CSIZE) | CS8;
@@ -83,7 +85,7 @@ int setupPort(char* portName)
 	/* Set the terminal attributes */
 	if (tcsetattr(fd, TCSANOW, &tty) != 0) {
 		perror("There was an error setting the serial port info");
-		return -3;
+		return -4;
 	}
 
 	/* First flush any data not read or trasmitted */
