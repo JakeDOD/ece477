@@ -31,6 +31,8 @@ void parseArgs(int argc, char* argv[], char** port, int* isServer)
 			*isServer = TRUE;
 		} else if (argv[i][0] == '-') {
 			fprintf(stderr, "Unknown argument: %s\n", argv[i]);
+			fprintf(stderr, "usage: %s [%s port_name] %s / %s\n", argv[0], FLAG_PORT, FLAG_CLIENT, FLAG_SERVER);
+			exit(EXIT_FAILURE);
 		}
 	}
 }
