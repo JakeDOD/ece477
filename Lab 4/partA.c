@@ -32,7 +32,7 @@ void parseArgs(int argc, char* argv[], char** port, char** inputName, char** out
 		} else if (argv[i][0] == '-') {
 			fprintf(stderr, "Unknown argument: %s\n", argv[i]);
 			fprintf(stderr, "usage: %s [%s port_name] [%s input_file] [%s output_file]\n", argv[0], FLAG_PORT, FLAG_INPUT, FLAG_OUTPUT);
-			exit(-1);
+			exit(EXIT_FAILURE);
 		}
 	}
 }
